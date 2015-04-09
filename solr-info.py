@@ -3,8 +3,13 @@
 
 import sys
 from argparse import ArgumentParser
-import racktablesDb
-import solrXml
+
+try:
+    import racktablesDb
+    import solrXml
+except ImportError as ie:
+    print(ie)
+    sys.exit(1)
 
 
 def humanReadable(number):

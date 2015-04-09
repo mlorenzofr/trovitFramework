@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 
 import sys
 
@@ -6,7 +7,7 @@ try:
     import remote
     import racktablesDb
 except ImportError as ie:
-    print ie
+    print(ie)
     sys.exit(1)
 
 
