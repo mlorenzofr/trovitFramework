@@ -5,7 +5,7 @@ import sys
 from argparse import ArgumentParser
 
 try:
-    import racktablesDb
+    from trovitdb.racktables import racktables
     import solrXml
 except ImportError as ie:
     print(ie)
@@ -44,31 +44,32 @@ def main():
     except IOError as ioe:
         print("%s: %s" % (ioe.filename, ioe.strerror))
         sys.exit(1)
-    rt = racktablesDb.rackTablesDB()
-    solrParser = solrXml.solrXmlParser()
-    servers = []
-    map(lambda x: servers.append(x[1]), rt.getServersByName(args.solrType))
-    for server in servers:
-        results = solrParser.getSizes(solrParser.getXml(server))
-        for core in results.keys():
-            if core == 'total':
-                cores[server] = results[core]
-            else:
-                if core not in cores:
-                    cores[core] = results[core]
+    with racktables() as rt:
+        rt.connect()
+        solrParser = solrXml.solrXmlParser()
+        servers = []
+        map(lambda x: servers.append(x[1]), rt.getServersByName(args.solrType))
+        for server in servers:
+            results = solrParser.getSizes(solrParser.getXml(server))
+            for core in results.keys():
+                if core == 'total':
+                    cores[server] = results[core]
                 else:
-                    if cores[core] != results[core]:
-                        # print "%s has different size !!!" % core
+                    if core not in cores:
                         cores[core] = results[core]
-    for key in cores.keys():
-        printInfo = False
-        if args.showServers and key in servers:
-            printInfo = True
-        if args.showCores and key not in servers:
-            printInfo = True
-        if printInfo:
-            print "%s: %d (%s)" % (key, int(cores[key]),
-                                   humanReadable(int(cores[key])))
+                    else:
+                        if cores[core] != results[core]:
+                            # print "%s has different size !!!" % core
+                            cores[core] = results[core]
+        for key in cores.keys():
+            printInfo = False
+            if args.showServers and key in servers:
+                printInfo = True
+            if args.showCores and key not in servers:
+                printInfo = True
+            if printInfo:
+                print "%s: %d (%s)" % (key, int(cores[key]),
+                                       humanReadable(int(cores[key])))
     return
 
 if __name__ == "__main__":

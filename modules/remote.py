@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import socket
-import trovitConf
+from trovitconf import trovitconf, trovitconfError
 from pwd import getpwuid
 from os import getuid
 from getpass import getpass
@@ -20,10 +20,10 @@ class sshLoginException(Exception):
 
 class serverGroup:
     def __init__(self):
-        config = trovitConf.trovitConf()
+        config = trovitconf()
         try:
             self.__password__ = config.getSshRootPasswd()
-        except trovitConf.trovitConfError:
+        except trovitconfError:
             self.__password__ = getpass(("Enter root passwd "
                                          "(for error with publickey auth): "))
         return

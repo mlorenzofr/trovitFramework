@@ -1,23 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-__module_name__ = 'rackTablesDB'
-__module_description__ = 'Conector to work with Racktables DB'
-__module_version__ = '0.1'
-__module_author__ = 'Manuel Lorenzo Frieiro'
+"""This module is used to manage objects stored in Racktables DB"""
 
-from getpass import getpass
 import re
-import trovitConf
+from . import trovitdb
 
-try:
-    import mysql.connector as mdb
-except ImportError as ie:
-    print "Error loading mysql-connector module. Is it installed?"
-    raise
-
-
-OS = {
+_OS = {
     # Wheezy
     '7': 1709,
     # Squeeze
@@ -27,72 +16,8 @@ OS = {
 }
 
 
-class rackTablesException(Exception):
-    pass
-
-
-class rackTablesDB:
-    def __init__(self):
-        try:
-            config = trovitConf.trovitConf()
-            self.DB = {}
-            self.DB.update(config.getRacktables())
-        except trovitConf.trovitConfError:
-            raise rackTablesException(trovitConf.trovitConfError.message)
-        self.__cnx = False
-        self.__errorMsg = '[DB]: '
-        if self.DB['password'] == '':
-            self.DB['password'] = getpass('Enter MySQL password for %s@%s: ' %
-                                          (self.DB['user'], self.DB['host']))
-        self.connect(**self.DB)
-        return
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-        self.__cnx.close()
-        return
-
-    def connect(self, **options):
-        """
-        Do the connection to the Racktables DB.
-        The connection is stored in self.__cnx variable
-        """
-        try:
-            self.__cnx = mdb.connect(**options)
-        except mdb.Error as err:
-            if err.errno == mdb.errorcode.ER_ACCESS_DENIED_ERROR:
-                raise rackTablesException("Wrong user or password")
-            elif err.errno == mdb.errorcode.ER_BAD_DB_ERROR:
-                raise rackTablesException("Database does not exists")
-            else:
-                print(err)
-                raise
-        return True
-
-    def destroy(self):
-        self.__exit__()
-        return
-
-    def query(self, sqlStmt, op='select'):
-        """
-        Send a sql statement to the Racktables DB.
-        Return: list[tuple(field1, field2, ...), ...]
-        """
-        data = ''
-        try:
-            cursor = self.__cnx.cursor()
-            cursor.execute(sqlStmt)
-            if op == 'select':
-                # data = map(lambda x: str(x[0]), cursor.fetchall())
-                data = cursor.fetchall()
-            self.__cnx.commit()
-            cursor.close()
-        except mdb.Error as err:
-            print('%s Error retrieving data from db' % self.__errorMsg)
-            print('%s %s' % (self.__errorMsg, err))
-        return data
+class racktables(trovitdb):
+    _confSection = 'racktables'
 
     def getServersByName(self, srvName):
         """
@@ -128,6 +53,10 @@ class rackTablesDB:
         return machines
 
     def getServerTags(self, serverId):
+        """
+        Return a list with all tags associated with a server
+        Return: list[str(tag), ...]
+        """
         tags = []
         data = self.query("select entity_id,tag from TagStorage \
                            left join TagTree \
@@ -137,6 +66,11 @@ class rackTablesDB:
         return tags
 
     def hasTag(self, serverId, tags):
+        """
+        Check if the server has the tag requested in tags parameter
+        Input: int(serverId), <str(tag)|list(str(tag), ...)>
+        Return: boolean
+        """
         targetTags = []
         if isinstance(tags, list):
             targetTags = tags
@@ -149,29 +83,41 @@ class rackTablesDB:
         return False
 
     def getServerVersion(self, serverId):
+        """
+        Retrieve OS version from racktables and validate it
+        Return: int (major version of Debian OS)
+        """
         data = ''
         attrOS = self.query("select uint_value from AttributeValue \
                              where object_id = %s \
                                and attr_id = 4;" % serverId)
         if len(attrOS) > 0:
-            for attrVal in OS.keys():
-                if OS[attrVal] == attrOS[0][0]:
+            for attrVal in _OS.keys():
+                if _OS[attrVal] == attrOS[0][0]:
                     data = attrVal
             if data == '':
                 data = 'Unknown value'
         return data
 
     def insertVersion(self, serverId, serverType, osversion):
-        if osversion in OS:
+        """
+        Insert the OS version attribute into racktables DB
+        Return: None
+        """
+        if osversion in _OS:
             self.query("insert into AttributeValue \
                         values (%s,%s,4,NULL,%s,NULL);" %
-                       (serverId, serverType, OS[osversion]),
+                       (serverId, serverType, _OS[osversion]),
                        'insert')
         else:
             print("Unknown OS version: \'%s\'" % osversion)
         return
 
     def isRunning(self, serverId):
+        """
+        Check if the specified serverID has attribute running and it's true
+        Return: boolean
+        """
         check = self.query("select uint_value from AttributeValue \
                             where attr_id = 10010 \
                               and object_id = %s;" % serverId)
@@ -181,12 +127,16 @@ class rackTablesDB:
         return True
 
     def updateVersion(self, serverId, osversion):
-        if osversion in OS:
+        """
+        Update OS version attribute into racktables DB
+        Return: None
+        """
+        if osversion in _OS:
             self.query("update AttributeValue \
                         set uint_value=%s \
                         where object_id = %s \
                             and attr_id = 4;" %
-                       (OS[osversion], serverId),
+                       (_OS[osversion], serverId),
                        'update')
         else:
             print("%s Wrong OS version \'%s\' for ID %s" %
