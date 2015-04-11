@@ -140,5 +140,5 @@ class racktables(trovitdb):
                        'update')
         else:
             print("%s Wrong OS version \'%s\' for ID %s" %
-                  (self.__errorMsg, osversion, serverId))
+                  (self._errorMsg, osversion, serverId))
         return
