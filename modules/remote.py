@@ -1,11 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import socket
 from trovitconf import trovitconf, trovitconfError
 from pwd import getpwuid
 from os import getuid
 from getpass import getpass
+from select import select
+from re import sub
 
 try:
     import paramiko
@@ -20,6 +23,7 @@ class sshLoginException(Exception):
 
 class serverGroup:
     def __init__(self):
+        self.sckBS = 4096
         config = trovitconf()
         try:
             self.__password__ = config.getSshRootPasswd()
@@ -50,8 +54,6 @@ class serverGroup:
                    'timeout': 60,
                    'password': self.__password__}
         errorMsg = '[SSH]: <%s>' % sshArgs['hostname']
-        output = ''
-        error = ''
         sshCnx = paramiko.SSHClient()
         sshCnx.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         sshUsers = ['root']
@@ -64,8 +66,30 @@ class serverGroup:
             raise sshLoginException("%s %s" % (errorMsg, sLE.message))
         except IndexError:
             raise sshLoginException("%s Auth Error" % errorMsg)
-        stdin, stdout, stderr = sshCnx.exec_command(cmd)
-        output = stdout.readlines()
-        error = stderr.readlines()
+        sshTrans = sshCnx.get_transport()
+        sshChan = sshTrans.open_session()
+        sshChan.exec_command(cmd)
+        while not sshChan.exit_status_ready():
+            rObj, wObj, xObj = select([sshChan], [], [], 1.0)
+            if len(rObj) > 0:
+                if sshChan.recv_ready():
+                    self._parseResponse(sshChan)
+                if sshChan.recv_stderr_ready():
+                    self._parseResponse(sshChan, srcType='err')
+        sshChan.close()
         sshCnx.close()
-        return (output, error)
+        return
+
+    def _parseResponse(self, channel, srcType='out'):
+        data = ''
+        color = 2 if srcType == 'out' else 1
+        decorator = "\033[1;3%sm*\033[0m" % color
+        while len(data) == 0 or data[-1] != '\n':
+            if srcType == 'out':
+                data += channel.recv(self.sckBS)
+            elif srcType == 'err':
+                data += channel.recv_stderr(self.sckBS)
+        output = "%s %s" % (decorator, sub('\n', '\n%s ' % decorator,
+                                           data[:-1]))
+        print(output)
+        return

@@ -32,11 +32,7 @@ def main():
             for server in rt.getServersByName(args.key):
                 print('\n\033[1;33m=====> %s <=====\033[0m' % server[1])
                 try:
-                    sshReply = sshOps.sshCmd(server[1],
-                                             ' '.join(args.command))
-                    for x, y in zip((0, 1), (2, 1)):
-                        map(lambda x: print("\033[1;3%sm*\033[0m %s"
-                            % (y, x.strip('\n'))), sshReply[x])
+                    sshOps.sshCmd(server[1], ' '.join(args.command))
                 except sshLoginException as sLE:
                     print(sLE)
     except KeyboardInterrupt:
