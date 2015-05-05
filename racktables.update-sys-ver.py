@@ -21,7 +21,8 @@ def main():
                 try:
                     # Get 1 char to know the OS version
                     osVer = sshOps.sshCmd(server[1], "cat "
-                                          "/etc/debian_version")[0][0][0]
+                                          "/etc/debian_version",
+                                          sync=True)[0][0][0]
                 except sshLoginException as sLE:
                     print(sLE)
                 else:

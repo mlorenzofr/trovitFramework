@@ -21,20 +21,44 @@ class sshLoginException(Exception):
     pass
 
 
-class serverGroup:
-    def __init__(self):
-        self.sckBS = 4096
-        config = trovitconf()
-        try:
-            self.__password__ = config.getSshRootPasswd()
-        except trovitconfError:
-            self.__password__ = getpass(("Enter root passwd "
-                                         "(for error with publickey auth): "))
+class remoteServer:
+    def __init__(self, hostname, password):
+        self._sckBS = 4096
+        self._sshCli = paramiko.SSHClient()
+        self._sshCli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self._sshCred = {'username': getpwuid(getuid())[0],
+                         'hostname': hostname,
+                         'allow_agent': True,
+                         'timeout': 60,
+                         'password': password}
+        self._catchExcpts = ['sshLoginException']
+        self._sshLogin()
         return
 
-    def sshLogin(self, cnx, **sshOpts):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, xcpType, xcpValue, traceback):
+        if self._sshCli is not None:
+            self._sshCli.close()
+        if xcpType is not None:
+            if xcpType.__name__ in self._catchExcpts:
+                print("[%s]: %s" % (xcpType.__name__, xcpValue))
+                return True
+        return
+
+    def _sshConnection(self):
+        """
+        Establish the connection with the remote server and handle possible
+        errors.
+
+        Keywords:
+          None
+        Return:
+          None
+        """
         try:
-            cnx.connect(**sshOpts)
+            self._sshCli.connect(**self._sshCred)
         except paramiko.AuthenticationException:
             return False
         except paramiko.SSHException as se:
@@ -47,26 +71,62 @@ class serverGroup:
             raise sshLoginException("Socket Error (%s)" % sckE)
         return True
 
-    def sshCmd(self, hostname, cmd):
-        sshArgs = {'username': getpwuid(getuid())[0],
-                   'hostname': hostname,
-                   'allow_agent': True,
-                   'timeout': 60,
-                   'password': self.__password__}
-        errorMsg = '[SSH]: <%s>' % sshArgs['hostname']
-        sshCnx = paramiko.SSHClient()
-        sshCnx.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    def _sshLogin(self):
+        """
+        Create a new connection (login included) to a remote server.
+
+        Keywords:
+          None
+        Return:
+          None
+        """
+        errorMsg = '[SSH]: <%s>' % self._sshCred['hostname']
         sshUsers = ['root']
-        if sshArgs['hostname'][:7] == 'vpc-nat':
+        if self._sshCred['hostname'][:7] == 'vpc-nat':
             sshUsers.insert(0, 'admin')
         try:
-            while not self.sshLogin(sshCnx, **sshArgs):
-                sshArgs['username'] = sshUsers.pop()
+            while not self._sshConnection():
+                self._sshCred['username'] = sshUsers.pop()
         except sshLoginException as sLE:
             raise sshLoginException("%s %s" % (errorMsg, sLE.message))
         except IndexError:
             raise sshLoginException("%s Auth Error" % errorMsg)
-        sshTrans = sshCnx.get_transport()
+        return
+
+    def _parseResponse(self, channel, srcType='out'):
+        """
+        Print in fancy mode the stdout or stderr streams of a SSH Channel.
+
+        Keywords:
+          @channel (SSHChannel): Paramiko SSH Channel to work in
+          @srcType (str): Type of message [ out | err ]
+        Return:
+          None
+        """
+        data = ''
+        color = 2 if srcType == 'out' else 1
+        decorator = "\033[1;3%sm*\033[0m" % color
+        while len(data) == 0 or data[-1] != '\n':
+            if srcType == 'out':
+                data += channel.recv(self._sckBS)
+            elif srcType == 'err':
+                data += channel.recv_stderr(self._sckBS)
+        output = "%s %s" % (decorator, sub('\n', '\n%s ' % decorator,
+                                           data[:-1]))
+        print(output)
+        return
+
+    def sshStreamCmd(self, cmd):
+        """
+        Execute one command on the remote server and prints the output (and
+        error).
+
+        Keywords:
+          @cmd (str): command to execute
+        Return:
+          None
+        """
+        sshTrans = self._sshCli.get_transport()
         sshChan = sshTrans.open_session()
         sshChan.exec_command(cmd)
         while not sshChan.exit_status_ready():
@@ -77,19 +137,39 @@ class serverGroup:
                 if sshChan.recv_stderr_ready():
                     self._parseResponse(sshChan, srcType='err')
         sshChan.close()
-        sshCnx.close()
         return
 
-    def _parseResponse(self, channel, srcType='out'):
-        data = ''
-        color = 2 if srcType == 'out' else 1
-        decorator = "\033[1;3%sm*\033[0m" % color
-        while len(data) == 0 or data[-1] != '\n':
-            if srcType == 'out':
-                data += channel.recv(self.sckBS)
-            elif srcType == 'err':
-                data += channel.recv_stderr(self.sckBS)
-        output = "%s %s" % (decorator, sub('\n', '\n%s ' % decorator,
-                                           data[:-1]))
-        print(output)
+    def sshSyncCmd(self, cmd):
+        """
+        Execute one command on the remote server and return a tuple with stdout
+        and stderr lines.
+
+        Keywords:
+          @cmd (str): command to execute
+        Return:
+          tuple(list[stdout], list[stderr])
+        """
+        output, error = '', ''
+        stdin, stdout, stderr = self._sshCli.exec_command(cmd)
+        output = stdout.readlines()
+        error = stderr.readlines()
+        return (output, error)
+
+
+class serverGroup:
+    def __init__(self):
+        config = trovitconf()
+        try:
+            self.__password = config.getSshRootPasswd()
+        except trovitconfError:
+            self.__password = getpass(("Enter root passwd "
+                                       "(for error with publickey auth): "))
+        return
+
+    def sshCmd(self, hostname, cmd, sync=False):
+        with remoteServer(hostname, self.__password) as server:
+            if sync:
+                return server.sshSyncCmd(cmd)
+            else:
+                server.sshStreamCmd(cmd)
         return
