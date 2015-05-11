@@ -39,7 +39,8 @@ class racktables(trovitdb):
         activeServers = []
         for server in self.getAllServers():
             if not self.hasTag(server[0], ['free', 'retired']) \
-               and self.isRunning(server[0]):
+               and self.isRunning(server[0])
+               and server[1] is not None:
                 activeServers.append(server)
         return activeServers
 
