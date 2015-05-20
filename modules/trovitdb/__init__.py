@@ -5,7 +5,7 @@
 the Trovit Platform
 """
 
-__all__ = ['global', 'racktables', 'trovitdb']
+__all__ = ['gbl', 'racktables', 'trovitdb']
 __version__ = '0.1'
 
 
