@@ -9,6 +9,8 @@ from socket import inet_ntoa, inet_aton
 from . import trovitdb
 
 _OS = {
+    # Jessie
+    '8': 50055,
     # Wheezy
     '7': 1709,
     # Squeeze
@@ -217,14 +219,18 @@ class racktables(trovitdb):
             @ipType: (str) racktables IP type [regular, shared, virtual, all]
         Return: boolean
         """
-        queryType = ','.join(self._ipTypeSet)
-        if ipType in self._ipTypeSet:
+        if ipType == 'all':
+            queryType = ('\'%s\'' % '\',\''.join(self._ipTypeSet))
+        elif ipType in self._ipTypeSet:
             queryType = ipType
         else:
-            raise self.trovitdbException("Wrong IP type %s. Choose: [all, %s]"
-                                         % (ipType, queryType))
+            raise trovitdb.trovitdbException("Wrong IP type %s. Choose: "
+                                             "[all, %s]"
+                                             % (ipType, queryType))
         data = self.query("select * from IPv4Allocation \
-                           where ip in %s;" % queryType)
+                           where ip = %s \
+                             and type in (%s);"
+                           % (ip2int(ip), queryType))
         if len(data) > 0:
             return True
         return False
@@ -241,11 +247,12 @@ class racktables(trovitdb):
             null
         """
         if ipType not in self._ipTypeSet:
-            raise self.trovitdbException("Wrong IP type %s." % ipType)
+            raise trovitdb.trovitdbException("Wrong IP type %s." % ipType)
         self.query("insert into IPv4Allocation \
                     (object_id, ip, name, type) \
                     values (%s, %s, '%s', '%s');"
-                   % (serverId, ip2int(ip), port, ipType))
+                   % (serverId, ip2int(ip), port, ipType),
+                   'insert')
         return
 
     def updateIp(self, ip, serverId, port, ipType='regular'):
@@ -260,13 +267,14 @@ class racktables(trovitdb):
             null
         """
         if ipType not in self._ipTypeSet:
-            raise self.trovitdbException("Wrong IP type %s." % ipType)
+            raise trovitdb.trovitdbException("Wrong IP type %s." % ipType)
         self.query("update IPv4Allocation \
                     set object_id = %s, \
                         name = '%s', \
                         type = '%s' \
                     where ip = %s;"
-                   % (serverId, port, ipType, ip2int(ip)))
+                   % (serverId, port, ipType, ip2int(ip)),
+                   'update')
         return
 
 
