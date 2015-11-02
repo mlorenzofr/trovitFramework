@@ -59,6 +59,16 @@ class racktables(trovitdb):
                                where objtype_id in (4,1504);")
         return machines
 
+    def getPhysicalServers(self):
+        """
+        Return a server list just with physical machines (no VM's)
+        Return: list[(id,name,type), ...]
+        """
+        phyServers = []
+        phyServers = self.query("select id,name,objtype_id from Object \
+                                 where objtype_id = 4;")
+        return phyServers
+
     def getServerTags(self, serverId):
         """
         Return a list with all tags associated with a server
@@ -132,6 +142,17 @@ class racktables(trovitdb):
         else:
             print("Unknown OS version: \'%s\'" % osversion)
         return
+
+    def isRetired(self, serverId):
+        """
+        Check if the server is retired or will be soon
+        Return: boolean
+        """
+        srvTags = self.getServerTags(serverId)
+        if 'retired' in srvTags \
+           or 'to be retired' in srvTags:
+            return True
+        return False
 
     def isRunning(self, serverId):
         """
