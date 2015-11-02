@@ -127,7 +127,7 @@ class racktables(trovitdb):
                 data = 'Unknown value'
         return data
 
-    def getServerHardwareExpiration(self, serverId):
+    def getServerHwEnd(self, serverId):
         """
         Retrieve the expiration date for the hardware
         Return: int (timestamp date)
@@ -137,7 +137,7 @@ class racktables(trovitdb):
             return 0
         return int(timestamp)
 
-    def getServerSupportExpiration(self, serverId):
+    def getServerSupportEnd(self, serverId):
         """
         Get the expiration date for hardware support
         Return: int (timestamp date)
@@ -146,6 +146,21 @@ class racktables(trovitdb):
         if timestamp == '':
             return 0
         return int(timestamp)
+
+    def getServiceTag(self, searchVal, useServerId=True):
+        """
+        Get the machine ServiceTag using ServerID or ServerName
+        Return: str (ServiceTag)
+        """
+        svcTag = ''
+        if useServerId:
+            whereFilter = 'id'
+        else:
+            whereFilter = 'name'
+        svcTag = self.query("select asset_no from Object \
+                             where %s = %s;" %
+                            (whereFilter, searchVal))
+        return svcTag[0][0]
 
     def insertVersion(self, serverId, serverType, osversion):
         """
