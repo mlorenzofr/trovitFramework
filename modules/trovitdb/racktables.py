@@ -43,7 +43,8 @@ class racktables(trovitdb):
         """
         activeServers = []
         for server in self.getAllServers():
-            if not self.hasTag(server[0], ['free', 'retired']) \
+            if not self.hasTag(server[0], ['free', 'retired',
+                                           'to be retired']) \
                and self.isRunning(server[0]) \
                and server[1] is not None:
                 activeServers.append(server)
@@ -104,6 +105,19 @@ class racktables(trovitdb):
             if data == '':
                 data = 'Unknown value'
         return data
+
+    def getServerMaintenanceHW(self, serverId):
+        """
+        Get the expiration date for hardware maintenance
+        Return: int (timestamp date)
+        """
+        date = 0
+        attrHW = self.query("select uint_value from AttributeValue \
+                           where object_id = %s \
+                             and attr_id = 21" % serverId)
+        if len(attrHW) > 0:
+            date = attrHW[0][0]
+        return date
 
     def insertVersion(self, serverId, serverType, osversion):
         """
@@ -230,7 +244,7 @@ class racktables(trovitdb):
         data = self.query("select * from IPv4Allocation \
                            where ip = %s \
                              and type in (%s);"
-                           % (ip2int(ip), queryType))
+                          % (ip2int(ip), queryType))
         if len(data) > 0:
             return True
         return False

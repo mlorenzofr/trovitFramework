@@ -24,10 +24,10 @@ def humanReadable(number):
 
 def main():
     cores = dict()
-    solrTypes = ['search', 'keywords', 'premium']
+    solrTypes = ['search', 'keywords', 'premium', 'solr-extra']
     optParser = ArgumentParser()
     optParser.add_argument('-t', '--type',
-                           help='Index type: [search|keywords|premium]',
+                           help='Index type: [%s]' % '|'.join(solrTypes),
                            metavar='TYPE', required=False, type=str,
                            choices=solrTypes, default='search',
                            dest='solrType')
