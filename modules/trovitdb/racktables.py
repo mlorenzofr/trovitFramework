@@ -69,6 +69,19 @@ class racktables(trovitdb):
                                  where objtype_id = 4;")
         return phyServers
 
+    def getServerAttribute(self, serverId, attrId):
+        """
+        Retrieve the attribute matching with serverId & attrId given
+        Return: str(data)
+        """
+        data = ''
+        attr = self.query("select uint_value from AttributeValue \
+                           where object_id = %s \
+                             and attr_id = %s" % (serverId, attrId))
+        if len(attr) > 0:
+            data = attr[0][0]
+        return str(data)
+
     def getServerTags(self, serverId):
         """
         Return a list with all tags associated with a server
@@ -105,29 +118,34 @@ class racktables(trovitdb):
         Return: int (major version of Debian OS)
         """
         data = ''
-        attrOS = self.query("select uint_value from AttributeValue \
-                             where object_id = %s \
-                               and attr_id = 4;" % serverId)
-        if len(attrOS) > 0:
+        attrOS = self.getServerAttribute(serverId, 4)
+        if attrOS != '':
             for attrVal in _OS.keys():
-                if _OS[attrVal] == attrOS[0][0]:
+                if _OS[attrVal] == attrOS:
                     data = attrVal
             if data == '':
                 data = 'Unknown value'
         return data
 
-    def getServerMaintenanceHW(self, serverId):
+    def getServerHardwareExpiration(self, serverId):
         """
-        Get the expiration date for hardware maintenance
+        Retrieve the expiration date for the hardware
         Return: int (timestamp date)
         """
-        date = 0
-        attrHW = self.query("select uint_value from AttributeValue \
-                           where object_id = %s \
-                             and attr_id = 21" % serverId)
-        if len(attrHW) > 0:
-            date = attrHW[0][0]
-        return date
+        timestamp = self.getServerAttribute(serverId, 22)
+        if timestamp == '':
+            return 0
+        return int(timestamp)
+
+    def getServerSupportExpiration(self, serverId):
+        """
+        Get the expiration date for hardware support
+        Return: int (timestamp date)
+        """
+        timestamp = self.getServerAttribute(serverId, 21)
+        if timestamp == '':
+            return 0
+        return int(timestamp)
 
     def insertVersion(self, serverId, serverType, osversion):
         """
