@@ -137,6 +137,13 @@ class racktables(trovitdb):
             return 0
         return int(timestamp)
 
+    def getServerModel(self, serverId):
+        """
+        Return the hardware type (model) for a server given
+        Return:
+        """
+        return
+
     def getServerSupportEnd(self, serverId):
         """
         Get the expiration date for hardware support
