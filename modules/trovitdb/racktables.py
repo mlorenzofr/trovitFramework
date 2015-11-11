@@ -82,6 +82,27 @@ class racktables(trovitdb):
             data = attr[0][0]
         return str(data)
 
+    def getServerAttrDict(self, serverId, attrId):
+        """
+        Take the value from a racktables dictionary and return it
+        Return: str(data)
+        """
+        data = ''
+        sql = "select dict_value from Dictionary \
+               inner join AttributeMap \
+                 on Dictionary.chapter_id = AttributeMap.chapter_id \
+               inner join AttributeValue \
+                 on (AttributeValue.uint_value = Dictionary.dict_key \
+                   and AttributeMap.objtype_id = AttributeValue.object_tid) \
+               inner join Object \
+                 on Object.id = AttributeValue.object_id \
+               where Object.id = %s \
+                 and AttributeMap.attr_id = %s;" % (serverId, attrId)
+        dictVal = self.query(sql)
+        if len(dictVal) > 0:
+            data = dictVal[0][0]
+        return data
+
     def getServerTags(self, serverId):
         """
         Return a list with all tags associated with a server
@@ -140,9 +161,9 @@ class racktables(trovitdb):
     def getServerModel(self, serverId):
         """
         Return the hardware type (model) for a server given
-        Return:
+        Return: str(server hardware model)
         """
-        return
+        return self.getServerAttrDict(serverId, 2)
 
     def getServerSupportEnd(self, serverId):
         """
