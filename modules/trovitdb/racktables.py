@@ -59,6 +59,19 @@ class racktables(trovitdb):
                                where objtype_id in (4,1504);")
         return machines
 
+    def getAwsInstances(self):
+        """
+        Return the instances registered into the Racktables dictionary
+        Return: dict{str(instance-type): int(id)}
+        """
+        instances = {}
+        regInstances = self.query("select dict_key, dict_value \
+                                   from Dictionary \
+                                   where chapter_id = 10001;")
+        for instEntry in regInstances:
+            instances[instEntry[1]] = instEntry[0]
+        return instances
+
     def getPhysicalServers(self):
         """
         Return a server list just with physical machines (no VM's)
