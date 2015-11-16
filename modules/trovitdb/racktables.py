@@ -72,6 +72,17 @@ class racktables(trovitdb):
             instances[instEntry[1]] = instEntry[0]
         return instances
 
+    def getLastDictId(self):
+        """
+        Return the more higher dict_key into Dictionary table.
+        Useful to create new values
+        Return: int(dict_id)
+        """
+        dictId = self.query("select dict_key from Dictionary \
+                             order by dict_key \
+                             desc limit 1;")
+        return dictId[0][0]
+
     def getPhysicalServers(self):
         """
         Return a server list just with physical machines (no VM's)
@@ -240,6 +251,18 @@ class racktables(trovitdb):
             if check[0][0] == 50053:
                 return False
         return True
+
+    def newDictValue(self, chapter_id, value):
+        """
+        Create a new record in the Dictionary table
+        Return: None
+        """
+        dictKey = self.getLastDictId()
+        self.query("insert into Dictionary \
+                    values (%s,%s,'no','%s');" %
+                   (chapter_id, dictKey, value),
+                   'insert')
+        return
 
     def updateVersion(self, serverId, osversion):
         """
