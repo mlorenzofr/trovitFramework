@@ -27,6 +27,8 @@ class racktables(trovitdb):
     def getServersByName(self, srvName):
         """
         Return a server list matching srvName string
+        Keywords:
+            @srvName: (str) Regular Expression for search
         Return: list[(id,name,type), ...]
         """
         srvRegex = re.compile(srvName)
@@ -50,13 +52,20 @@ class racktables(trovitdb):
                 activeServers.append(server)
         return activeServers
 
-    def getAllServers(self):
+    def getAllServers(self, serverType='all'):
         """
         Return a complete list with all servers in Racktables DB
+        Keywords:
+            @serverType: (str) One of [all|physical|virtual]
         Return: list[(id,name,type), ...]
         """
+        srvType = '4,1504'
+        if serverType == 'physical':
+            srvType = '4'
+        if serverType == 'virtual':
+            srvType = '1504'
         machines = self.query("select id,name,objtype_id from Object \
-                               where objtype_id in (4,1504);")
+                               where objtype_id in (%s);" % srvType)
         return machines
 
     def getAwsInstances(self):
@@ -88,14 +97,14 @@ class racktables(trovitdb):
         Return a server list just with physical machines (no VM's)
         Return: list[(id,name,type), ...]
         """
-        phyServers = []
-        phyServers = self.query("select id,name,objtype_id from Object \
-                                 where objtype_id = 4;")
-        return phyServers
+        return self.getAllServers('physical')
 
     def getServerAttribute(self, serverId, attrId):
         """
         Retrieve the attribute matching with serverId & attrId given
+        Keywords:
+            @serverId: (int) Server Object ID
+            @attrId: (int) Attribute ID
         Return: str(data)
         """
         data = ''
@@ -109,6 +118,9 @@ class racktables(trovitdb):
     def getServerAttrDict(self, serverId, attrId):
         """
         Take the value from a racktables dictionary and return it
+        Keywords:
+            @serverId: (int) Server Object ID
+            @attrId: (int) Attribute ID
         Return: str(data)
         """
         data = ''
@@ -130,6 +142,8 @@ class racktables(trovitdb):
     def getServerTags(self, serverId):
         """
         Return a list with all tags associated with a server
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: list[str(tag), ...]
         """
         tags = []
@@ -143,7 +157,9 @@ class racktables(trovitdb):
     def hasTag(self, serverId, tags):
         """
         Check if the server has the tag requested in tags parameter
-        Input: int(serverId), <str(tag)|list(str(tag), ...)>
+        Keywords:
+            @serverId: (int) Server Object ID
+            @tags: (list[(str), ...]) List of tags to search
         Return: boolean
         """
         targetTags = []
@@ -160,6 +176,8 @@ class racktables(trovitdb):
     def getServerVersion(self, serverId):
         """
         Retrieve OS version from racktables and validate it
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: int (major version of Debian OS)
         """
         data = ''
@@ -175,6 +193,8 @@ class racktables(trovitdb):
     def getServerHwEnd(self, serverId):
         """
         Retrieve the expiration date for the hardware
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: int (timestamp date)
         """
         timestamp = self.getServerAttribute(serverId, 22)
@@ -185,6 +205,8 @@ class racktables(trovitdb):
     def getServerModel(self, serverId):
         """
         Return the hardware type (model) for a server given
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: str(server hardware model)
         """
         return self.getServerAttrDict(serverId, 2)
@@ -192,6 +214,8 @@ class racktables(trovitdb):
     def getServerSupportEnd(self, serverId):
         """
         Get the expiration date for hardware support
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: int (timestamp date)
         """
         timestamp = self.getServerAttribute(serverId, 21)
@@ -202,6 +226,9 @@ class racktables(trovitdb):
     def getServiceTag(self, searchVal, useServerId=True):
         """
         Get the machine ServiceTag using ServerID or ServerName
+        Keywords:
+            @searchVal: (str) search value
+            @useServerId: (bool) Switch between 'id' or 'name' field
         Return: str (ServiceTag)
         """
         svcTag = ''
@@ -214,9 +241,20 @@ class racktables(trovitdb):
                             (whereFilter, searchVal))
         return svcTag[0][0]
 
+    def getVirtualServers(self):
+        """
+        Return a server list just with virtual machines
+        Return: list[(id,name,type), ...]
+        """
+        return self.getAllServers('virtual')
+
     def insertVersion(self, serverId, serverType, osversion):
         """
         Insert the OS version attribute into racktables DB
+        Keywords:
+            @serverId: (int) Server Object ID
+            @serverType: (int) Server type (4: phy | 1504: virt)
+            @osversion: (str) OS version [5|6|7|8]
         Return: None
         """
         if osversion in _OS:
@@ -231,6 +269,8 @@ class racktables(trovitdb):
     def isRetired(self, serverId):
         """
         Check if the server is retired or will be soon
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: boolean
         """
         srvTags = self.getServerTags(serverId)
@@ -242,6 +282,8 @@ class racktables(trovitdb):
     def isRunning(self, serverId):
         """
         Check if the specified serverID has attribute running and it's true
+        Keywords:
+            @serverId: (int) Server Object ID
         Return: boolean
         """
         check = self.query("select uint_value from AttributeValue \
@@ -252,21 +294,27 @@ class racktables(trovitdb):
                 return False
         return True
 
-    def newDictValue(self, chapter_id, value):
+    def newDictValue(self, chapterId, value):
         """
         Create a new record in the Dictionary table
+        Keywords:
+            @chapter_id: (int) Chapter ID
+            @value: (str) Value for the new record
         Return: None
         """
         dictKey = self.getLastDictId()
         self.query("insert into Dictionary \
                     values (%s,%s,'no','%s');" %
-                   (chapter_id, dictKey, value),
+                   (chapterId, dictKey, value),
                    'insert')
         return
 
     def updateVersion(self, serverId, osversion):
         """
         Update OS version attribute into racktables DB
+        Keywords:
+            @serverId: (int) Server Object ID
+            @osversion: (str) OS version [5|6|7|8]
         Return: None
         """
         if osversion in _OS:
