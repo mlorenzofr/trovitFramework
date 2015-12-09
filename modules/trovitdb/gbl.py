@@ -23,7 +23,7 @@ class trovitGlobal(trovitdb):
                  16: 'trends2',
                  18: 'geo',
                  19: 'geofilter',
-                 20: 'suggwhat'}
+                 20: 'suggester_what'}
 
     def getAllCores(self, dKey='core'):
         """
@@ -48,6 +48,8 @@ class trovitGlobal(trovitdb):
                                      core[1])
             if core[1] in ('gf', 'gg'):
                 corename = corename[:-3]
+            if core[1] == 'xw':
+                corename = self._typeMaps[core[3]]
             if dKey == 'server':
                 key = core[0]
                 value = corename
