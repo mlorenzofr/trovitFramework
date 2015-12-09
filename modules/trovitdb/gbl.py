@@ -22,7 +22,8 @@ class trovitGlobal(trovitdb):
                  15: 'trends',
                  16: 'trends2',
                  18: 'geo',
-                 19: 'geofilter'}
+                 19: 'geofilter',
+                 20: 'suggwhat'}
 
     def getAllCores(self, dKey='core'):
         """
