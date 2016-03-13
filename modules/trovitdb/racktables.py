@@ -4,6 +4,7 @@
 """This module is used to manage objects stored in Racktables DB"""
 
 import re
+from math import exp
 from struct import pack, unpack
 from socket import inet_ntoa, inet_aton
 from . import trovitdb
@@ -23,6 +24,42 @@ _OS = {
 class racktables(trovitdb):
     _confSection = 'racktables'
     _ipTypeSet = ['regular', 'shared', 'virtual']
+
+    def newServer(self, srvName, serverType):
+        """
+        Insert a new server record
+        Keywords;
+            @srvName: (str) Server name
+            @serverType: (str) One of [physical|virtual]
+                         by default: physical
+        Return:
+            None
+        """
+        srvType = '4'
+        if serverType == 'virtual':
+            srvType = '1504'
+        self.query("insert into Object \
+                    (name, objtype_id) \
+                    values ('%s', %s);" %
+                   (srvName, srvType),
+                   'insert')
+        return
+
+    def newPort(self, srvId, ifName, macAddr, ifType=24):
+        """
+        Insert a new port in the Racktables DB
+        Keywords:
+            @srvId: (int) Server Object ID
+            @ifName: (str) Port name (ethX)
+            @macAddr: (str) MAC address
+            @ifType: (int) Port type
+        """
+        self.query("insert into Port \
+                    (object_id, name, type, l2address) \
+                    values (%s, '%s', %s, '%s');" %
+                   (srvId, ifName, ifType, macAddr),
+                   'insert')
+        return
 
     def getServersByName(self, srvName):
         """
@@ -456,6 +493,29 @@ class racktables(trovitdb):
                    % (serverId, port, ipType, ip2int(ip)),
                    'update')
         return
+
+    def getFreeIP(self, netName, reserved_step):
+        """
+        Get the first free IP in the specified network
+        Keywords:
+            @netName: (str) Name of the net to check
+            @reserved_step: (int) In some environments the first IP's
+                            are reserved for FW's or switches
+        """
+        ipRange = self.query("select ip, mask from IPv4Network \
+                              where name = '%s';" % netName)
+        minimum = int(ipRange[0][0])
+        maximum = (ipRange + exp(2, int(ipRange[0][1])))
+        usedIps = self.query("select ip from IPv4Allocation \
+                              where ip >= %s and ip <= %s \
+                              order by ip;" %
+                             (minimum, maximum))
+        i = minimum + reserved_step
+        while i < maximum:
+            if i not in usedIps[0]:
+                return i
+            i += 1
+        return 0
 
 
 def ip2int(addr):
