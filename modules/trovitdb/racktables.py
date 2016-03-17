@@ -4,7 +4,7 @@
 """This module is used to manage objects stored in Racktables DB"""
 
 import re
-from math import exp
+from math import pow
 from struct import pack, unpack
 from socket import inet_ntoa, inet_aton
 from . import trovitdb
@@ -505,14 +505,16 @@ class racktables(trovitdb):
         ipRange = self.query("select ip, mask from IPv4Network \
                               where name = '%s';" % netName)
         minimum = int(ipRange[0][0])
-        maximum = (ipRange + exp(2, int(ipRange[0][1])))
+        maximum = (int(ipRange[0][0]) + pow(2, int(ipRange[0][1])))
         usedIps = self.query("select ip from IPv4Allocation \
                               where ip >= %s and ip <= %s \
                               order by ip;" %
                              (minimum, maximum))
+        ipList = list()
+        map(lambda x: ipList.append(x[0]), usedIps)
         i = minimum + reserved_step
         while i < maximum:
-            if i not in usedIps[0]:
+            if i not in ipList:
                 return i
             i += 1
         return 0
