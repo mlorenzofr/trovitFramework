@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import ConfigParser
@@ -14,13 +14,13 @@ class trovitconfError(Exception):
 
 
 class trovitconf:
-    def __init__(self):
+    def __init__(self, cnf_file=CONF_FILE):
         self.conf = ConfigParser.SafeConfigParser()
         try:
-            self.conf.read(CONF_FILE)
+            self.conf.read(cnf_file)
         except ConfigParser.Error:
             raise trovitconfError("Error reading configuration file %s"
-                                  % CONF_FILE)
+                                  % cnf_file)
         return
 
     def getConfig(self, section):
